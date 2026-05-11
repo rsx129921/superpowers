@@ -10,7 +10,7 @@ This directory is the **Claude Code-specific layer** of the rsx129921/superpower
 | M2 Hook Layer | **complete** | real hook logic — MCP injection, keyword match, cc-pre-compact dropped |
 | M3 Memory-Aware Skills | **complete** | memory-aware-brainstorming / -debugging / -planning (merged after M2) |
 | M4 Upstream Sync v1 | not started | first post-fork merge |
-| M5 Polish & Docs | not started | final README pass |
+| M5 Polish & Docs | **in progress** | audit + maintenance procedure shipped; arch narrative + fork README + gitconfig aliases + upstream-merge playbook still open |
 
 See [`docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`](../docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md) for the full design.
 
@@ -29,6 +29,8 @@ See [`docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`](../docs/superp
 | `skills/memory-aware-planning/SKILL.md` | M3: RECALL + cognify-offer wrapper around superpowers:writing-plans |
 | `tests/skills/test-skill-frontmatter.sh` | Tier 2 validator: SKILL.md frontmatter + wrap-don't-replace structure |
 | `docs/cc-plugin-skills-declaration-research.md` | Decision record on plugin.json skills declaration (M3 Task 1) |
+| `docs/keyword-table-maintenance.md` | Evergreen procedure for adding/removing/tightening hook keyword patterns (M5) |
+| `docs/audits/2026-05-11-keyword-table.md` | Dated audit of the keyword table — findings + tuning rationale (M5) |
 | `tests/run-all.sh` | Tier 1+2 test entry point |
 | `docs/plugin-hooks-research.md` | Decision record on where hook events register (M1 Task 1) |
 | `docs/cc-hook-json-contracts-research.md` | Decision record on per-event JSON contracts (M2 Task 1) |
