@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace M1 stub bodies in the three cc-tuned hooks with real CC-tuned logic — MCP introspection injection (cc-session-start), keyword-matched skill re-injection (cc-user-prompt-submit), bootstrap preservation (cc-pre-compact) — and prove the behavior via Tier 1 unit tests on the JSON each hook emits.
+**Goal:** Replace M1 stub bodies in the two viable cc-tuned hooks with real CC-tuned logic — MCP introspection injection (cc-session-start) and keyword-matched skill re-injection (cc-user-prompt-submit) — and drop cc-pre-compact since neither PreCompact nor PostCompact accept context injection per Anthropic's hook contract. Prove the behavior via Tier 1 unit tests.
 
-**Architecture:** Each hook keeps the M1 platform-detect → non-CC-exit-silent guard, then on the CC branch builds an `additionalContext` payload and emits it as the CC-specific JSON shape (`hookSpecificOutput.additionalContext`). A new shared library `cc-tuned/hooks/lib/json-emit.sh` factors out JSON string escaping and the printf emit envelope (the upstream session-start hook proves printf is required — bash 5.3+ has a heredoc-hang bug worth avoiding here). Tests assert on the emitted JSON content (presence of expected substrings, valid JSON structure), not on model behavior.
+> **REVISION 2026-05-11 (post-Task-1 research):** The original plan assumed all three events share the SessionStart envelope. Task 1's empirical research (cc-tuned/docs/cc-hook-json-contracts-research.md) revealed: (a) PreCompact accepts only `{"decision": "block", "reason": "..."}` — no context injection; (b) PostCompact is observation-only (issues #32026, #40492 for context injection closed as duplicates); (c) UserPromptSubmit triggers a spurious first-session error banner when using `hookSpecificOutput` (bug #17550 closed not-planned), workaround is plain text stdout. Consequence: drop cc-pre-compact entirely (its goal is already covered by cc-session-start's `startup|clear|compact` matcher — CC re-fires SessionStart after compaction), and cc-user-prompt-submit emits plain text stdout instead of JSON envelope.
+
+**Architecture:** cc-session-start keeps the M1 platform-detect → non-CC-exit-silent guard, then on the CC branch builds an `additionalContext` payload and emits it as the CC-specific JSON shape (`hookSpecificOutput.additionalContext`). cc-user-prompt-submit emits **plain text on stdout** when a keyword matches (no JSON envelope). cc-pre-compact is removed from the layer (file + manifest entry + test) since neither compaction-related event supports context injection — Task 5's cc-session-start covers the compaction-preservation goal via its existing `compact` matcher. A new shared library `cc-tuned/hooks/lib/json-emit.sh` factors out JSON string escaping and the printf emit envelope for cc-session-start (the upstream session-start hook proves printf is required — bash 5.3+ has a heredoc-hang bug worth avoiding here). Tests assert on the emitted output content (presence of expected substrings, valid JSON for cc-session-start), not on model behavior.
 
 **Tech Stack:** Bash 4+, JSON (printf-emitted, jq-validated in tests), upstream session-start as reference for CC hook output contract.
 
@@ -22,27 +24,28 @@
 
 | Path | Responsibility |
 |------|----------------|
-| `cc-tuned/hooks/lib/json-emit.sh` | Shared bash library: escape_for_json() + emit_cc_hook_context() |
+| `cc-tuned/hooks/lib/json-emit.sh` | Shared bash library: escape_for_json() + emit_cc_hook_context() — used only by cc-session-start in M2 |
 | `cc-tuned/tests/hooks/test-json-emit.sh` | Unit test for the json-emit library |
 | `cc-tuned/tests/hooks/test-cc-session-start.sh` | Replaces test-stubs.sh for cc-session-start; tests real MCP injection |
-| `cc-tuned/tests/hooks/test-cc-user-prompt-submit.sh` | Replaces test-stubs.sh for cc-user-prompt-submit; tests keyword table |
-| `cc-tuned/tests/hooks/test-cc-pre-compact.sh` | Replaces test-stubs.sh for cc-pre-compact; tests fixed-string output |
+| `cc-tuned/tests/hooks/test-cc-user-prompt-submit.sh` | Replaces test-stubs.sh for cc-user-prompt-submit; tests keyword table + plain-text output |
 | `cc-tuned/docs/cc-hook-json-contracts-research.md` | Decision record on JSON shape per event (Task 1) |
 
 **Modified in this plan:**
 
 | Path | Change |
 |------|--------|
-| `cc-tuned/hooks/cc-session-start` | Stub body replaced with MCP-availability injection |
-| `cc-tuned/hooks/cc-user-prompt-submit` | Stub body replaced with keyword match + skill suggestion |
-| `cc-tuned/hooks/cc-pre-compact` | Stub body replaced with bootstrap-preservation injection |
-| `cc-tuned/README.md` | Status table M2 → "active" then later "complete"; smoke test section expanded |
+| `cc-tuned/hooks/cc-session-start` | Stub body replaced with MCP-availability injection (JSON envelope) |
+| `cc-tuned/hooks/cc-user-prompt-submit` | Stub body replaced with keyword match + skill suggestion (plain text stdout) |
+| `hooks/hooks.json` | Remove the PreCompact entry (cc-pre-compact dropped) |
+| `cc-tuned/README.md` | Status table M2 → "active" then later "complete"; smoke test section expanded; cc-pre-compact removed from file map |
+| `docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md` | §2.3 cc-pre-compact section updated to note it was dropped per Task 1 research; §2.2 cc-user-prompt-submit section notes plain-text-stdout output |
 
 **Deleted in this plan:**
 
 | Path | Why |
 |------|-----|
-| `cc-tuned/tests/hooks/test-stubs.sh` | M1 stub-contract test ("CC emits nothing") becomes false once M2 makes hooks emit content. Replaced by per-hook test files that cover both the non-CC no-op contract and the CC-real-behavior contract. |
+| `cc-tuned/tests/hooks/test-stubs.sh` | M1 stub-contract test ("CC emits nothing") becomes false once M2 makes hooks emit content. Replaced by per-hook test files. |
+| `cc-tuned/hooks/cc-pre-compact` | Dropped — neither PreCompact nor PostCompact accept `additionalContext`. Compaction-preservation goal already covered by cc-session-start's `startup\|clear\|compact` matcher. |
 
 **Out of scope (deferred to M3+):**
 - Memory-aware skills that consume the injected MCP availability context (that's M3).
@@ -350,7 +353,7 @@ EOF
 - Delete: `cc-tuned/tests/hooks/test-stubs.sh`
 - Create: `cc-tuned/tests/hooks/test-cc-session-start.sh` (initial: contract-only tests, more added in Task 5)
 - Create: `cc-tuned/tests/hooks/test-cc-user-prompt-submit.sh` (initial: contract-only tests, more added in Task 6)
-- Create: `cc-tuned/tests/hooks/test-cc-pre-compact.sh` (initial: contract-only tests, more added in Task 4)
+- ~~Create test-cc-pre-compact.sh~~ — REMOVED (Task 4 now drops cc-pre-compact entirely; no test file needed)
 
 **Why this task:** M1's test-stubs.sh asserts "CC stub emits nothing" — that becomes FALSE in M2 when hooks emit real JSON. Three options: (a) update test-stubs.sh to accept either-empty-or-JSON (messy), (b) delete and replace with per-hook tests (clean), (c) keep test-stubs.sh as a minimum contract but loosen the CC assertion (split responsibility). Going with (b): one test file per hook = clean responsibility, easier failure diagnosis when M2 hooks regress.
 
@@ -551,156 +554,128 @@ EOF
 
 ---
 
-## Task 4: cc-pre-compact — bootstrap preservation injection (TDD)
+## Task 4: Drop cc-pre-compact (REVISED per Task 1 research)
+
+> **Original intent:** Replace the M1 stub body in cc-pre-compact with bootstrap-preservation injection.
+>
+> **Revised after Task 1:** Drop cc-pre-compact entirely. Task 1's research determined that neither PreCompact nor PostCompact accept `additionalContext` per Anthropic's hook contract — PreCompact only supports `{"decision": "block"}`, PostCompact is observation-only (issues #32026 and #40492 for context injection on PostCompact were closed as duplicates). The original "preserve bootstrap across compaction" goal is **already covered** by cc-session-start's existing matcher `startup|clear|compact` (CC re-fires SessionStart hooks after compaction).
 
 **Files:**
-- Modify: `cc-tuned/hooks/cc-pre-compact` (replace stub body)
-- Modify: `cc-tuned/tests/hooks/test-cc-pre-compact.sh` (add CC-behavior assertions)
+- Delete: `cc-tuned/hooks/cc-pre-compact` (the M1 stub)
+- Modify: `hooks/hooks.json` (remove the PreCompact entry)
+- Modify: `docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md` §2.3 (note that cc-pre-compact was dropped, with rationale)
 
-**Why this hook first:** Simplest behavior — emit a fixed string, no input parsing, no dynamic content. Builds confidence in the json-emit lib before tackling the harder hooks.
-
-The fixed message per spec §2.3:
-> *"After this compaction completes: the using-superpowers bootstrap is still in effect. The compaction summary MUST include a note that superpowers skills (brainstorming, systematic-debugging, test-driven-development, writing-plans, verification-before-completion) remain available via the Skill tool and SHOULD be invoked when their trigger conditions match."*
-
-- [ ] **Step 1: Update test-cc-pre-compact.sh with CC-behavior assertions**
-
-Edit `cc-tuned/tests/hooks/test-cc-pre-compact.sh`. After the non-CC contract block (just before the `echo "  ${pass} passed, ${fail} failed"` line), add:
+- [ ] **Step 1: Delete the M1 stub script**
 
 ```bash
-# CC contract: emits CC-format JSON with bootstrap-preservation message
-set +e
-actual=$(env -i CLAUDE_PLUGIN_ROOT=/fake "$BASH_BIN" "$HOOK" </dev/null 2>&1)
-rc=$?
-set -e
-assert_eq "CC: exit 0" "0" "$rc"
-
-# Output should contain the JSON envelope markers
-if printf '%s' "$actual" | grep -qF '"hookSpecificOutput"'; then
-    echo "  pass: CC: emits hookSpecificOutput envelope"
-    pass=$((pass + 1))
-else
-    echo "  FAIL: CC: missing hookSpecificOutput envelope"
-    fail=$((fail + 1))
-fi
-
-if printf '%s' "$actual" | grep -qF '"hookEventName": "PreCompact"'; then
-    echo "  pass: CC: hookEventName is PreCompact"
-    pass=$((pass + 1))
-else
-    echo "  FAIL: CC: hookEventName not PreCompact"
-    fail=$((fail + 1))
-fi
-
-# Bootstrap-preservation phrase must be in the additionalContext
-if printf '%s' "$actual" | grep -qF 'using-superpowers bootstrap is still in effect'; then
-    echo "  pass: CC: payload contains bootstrap-preservation phrase"
-    pass=$((pass + 1))
-else
-    echo "  FAIL: CC: payload missing bootstrap-preservation phrase"
-    fail=$((fail + 1))
-fi
-
-# Skill names should be enumerated for the summarizer
-for skill in brainstorming systematic-debugging test-driven-development writing-plans verification-before-completion; do
-    if printf '%s' "$actual" | grep -qF "$skill"; then
-        echo "  pass: CC: payload mentions $skill"
-        pass=$((pass + 1))
-    else
-        echo "  FAIL: CC: payload missing $skill"
-        fail=$((fail + 1))
-    fi
-done
-
-# JSON validity
-if command -v python3 >/dev/null 2>&1; then
-    set +e
-    printf '%s' "$actual" | python3 -m json.tool >/dev/null 2>&1
-    rc=$?
-    set -e
-    assert_eq "CC: emitted JSON is valid" "0" "$rc"
-fi
+git rm cc-tuned/hooks/cc-pre-compact
 ```
 
-The new assertion count: 2 (non-CC) + 3 (envelope) + 5 (skill names) + 1 (JSON valid) = 11 total per run.
+- [ ] **Step 2: Remove the PreCompact entry from `hooks/hooks.json`**
 
-- [ ] **Step 2: Run test to verify it fails (TDD red phase)**
+Edit `hooks/hooks.json` and remove the entire `"PreCompact"` top-level array (added by M1 Task 6). The other two events (SessionStart with both upstream + cc-tuned matchers, and UserPromptSubmit) stay in place.
+
+After the edit, `hooks/hooks.json` should contain:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
+            "async": false
+          }
+        ]
+      },
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/cc-tuned/hooks/run-hook.cmd\" cc-session-start",
+            "async": false
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/cc-tuned/hooks/run-hook.cmd\" cc-user-prompt-submit",
+            "async": false
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Validate:
+```bash
+python3 -m json.tool hooks/hooks.json >/dev/null && echo "JSON OK"
+```
+
+- [ ] **Step 3: Update the design spec §2.3**
+
+Edit `docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`. Find the section `#### 2.3 cc-pre-compact — bootstrap preservation` and replace its body with:
+
+```markdown
+#### 2.3 cc-pre-compact — DROPPED
+
+**Original design intent:** A PreCompact hook that injects an `additionalContext` directive telling the compaction summarizer to preserve the using-superpowers bootstrap reminder, defeating "compaction amnesia."
+
+**Why dropped:** M2 Task 1 research (see `cc-tuned/docs/cc-hook-json-contracts-research.md`) determined that neither PreCompact nor PostCompact accept `additionalContext` per Anthropic's hook contract. PreCompact only supports `{"decision": "block", "reason": "..."}` for blocking compaction; PostCompact is observation-only (universal fields only). Anthropic feature requests #32026 and #40492 for context injection on PostCompact were closed as duplicates with no fix planned.
+
+**How the goal is still met:** Claude Code re-fires SessionStart hooks after compaction (per the `startup|clear|compact` matcher in `hooks/hooks.json`). cc-session-start (§2.1) is already registered with that matcher, so its MCP-availability + memory-aware-directive injection runs *every* time after a compaction event — implicitly covering the bootstrap-preservation goal without needing a dedicated compaction-event hook.
+
+**File-level consequence:** No cc-tuned/hooks/cc-pre-compact script exists; no PreCompact entry in hooks/hooks.json.
+```
+
+- [ ] **Step 4: Verify nothing else references cc-pre-compact**
 
 ```bash
-bash cc-tuned/tests/hooks/test-cc-pre-compact.sh
+grep -rn "cc-pre-compact" cc-tuned/ hooks/ .claude-plugin/ 2>/dev/null
 ```
 
-Expected: CC-branch assertions FAIL (stub still emits nothing). Confirm.
+Expected output: zero matches (or only docs/specs/plans matches we've already updated). If the test runner or README references it, those are addressed in Tasks 3 and 7 respectively.
 
-- [ ] **Step 3: Replace the stub body in cc-pre-compact**
-
-Replace the entire file `cc-tuned/hooks/cc-pre-compact` with:
-
-```bash
-#!/usr/bin/env bash
-# cc-pre-compact
-#
-# Fires before Claude Code compacts the conversation. Injects a fixed
-# additionalContext directive instructing the compaction summarizer to
-# preserve the using-superpowers bootstrap discipline across the
-# compaction handoff. Without this, after compaction the model often
-# "forgets" that superpowers skills are still available.
-#
-# Per design spec §2.3.
-
-set -u
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLATFORM=$(bash "${SCRIPT_DIR}/lib/platform-detect.sh")
-
-if [ "$PLATFORM" != "cc" ]; then
-    exit 0
-fi
-
-# shellcheck source=lib/json-emit.sh disable=SC1091
-source "${SCRIPT_DIR}/lib/json-emit.sh"
-
-read -r -d '' MESSAGE <<'EOF' || true
-After this compaction completes: the using-superpowers bootstrap is still in effect. The compaction summary MUST include a note that superpowers skills (brainstorming, systematic-debugging, test-driven-development, writing-plans, verification-before-completion) remain available via the Skill tool and SHOULD be invoked when their trigger conditions match.
-EOF
-
-emit_cc_hook_context "PreCompact" "$MESSAGE"
-
-exit 0
-```
-
-Notes:
-- `read -r -d '' VAR <<'EOF' ... EOF` is the bash idiom for assigning a multi-line heredoc to a variable without eating leading whitespace.
-- The `|| true` after `read` accommodates `read`'s exit-1 when no delimiter is found at EOF (expected for `-d ''`).
-- `set -u` (no `-e`) preserves fail-open semantics. The `|| true` and the explicit `exit 0` belt-and-suspenders ensure non-zero never escapes.
-
-- [ ] **Step 4: Run test to verify it passes**
-
-```bash
-bash cc-tuned/tests/hooks/test-cc-pre-compact.sh
-```
-
-Expected: all 11 assertions pass.
-
-- [ ] **Step 5: Verify the harness still runs all tests cleanly**
+- [ ] **Step 5: Run the harness to confirm nothing breaks**
 
 ```bash
 bash cc-tuned/tests/run-all.sh
 ```
 
-Expected: all test files green, summary `N / N test files passed`.
+Expected: still green (one fewer test file, since test-cc-pre-compact.sh was deliberately NOT created in Task 3 per the revision).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add cc-tuned/hooks/cc-pre-compact cc-tuned/tests/hooks/test-cc-pre-compact.sh
+git add hooks/hooks.json docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md
 git commit -m "$(cat <<'EOF'
-feat(cc-tuned): cc-pre-compact emits bootstrap-preservation directive
+feat(cc-tuned): drop cc-pre-compact (PreCompact/PostCompact lack context injection)
 
-Replaces the M1 stub body with the fixed PreCompact additionalContext
-from design spec §2.3. The injected note tells the compaction
-summarizer to preserve a reminder that superpowers skills remain
-available post-compaction. Closes the "compaction amnesia" failure
-mode identified in the design.
+Removes cc-tuned/hooks/cc-pre-compact (the M1 stub) and the PreCompact
+entry in hooks/hooks.json. Updates design spec §2.3 with rationale.
+
+Per M2 Task 1 research, neither PreCompact nor PostCompact accept
+additionalContext under Anthropic's hook contract — the original
+design assumption was incorrect. PreCompact accepts only
+{"decision": "block"} for compaction control; PostCompact is
+observation-only with no context-injection capability (feature
+requests #32026/#40492 closed as duplicates).
+
+The bootstrap-preservation goal is preserved without code: CC re-fires
+SessionStart hooks after compaction, and cc-session-start's existing
+startup|clear|compact matcher already runs after every compaction
+event, implicitly re-injecting MCP availability + memory-aware
+directives.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -934,9 +909,11 @@ EOF
 
 ## Task 6: cc-user-prompt-submit — keyword match + skill suggestion (TDD)
 
+> **REVISION 2026-05-11 (post-Task-1 research):** UserPromptSubmit + `hookSpecificOutput` JSON triggers a spurious first-session error banner per Anthropic issue #17550 (closed not-planned). Workaround documented in Anthropic's own hook reference: emit **plain text on stdout** — CC injects it as context AND avoids the bug. Therefore, this hook emits plain text via `printf '%s\n' "$PAYLOAD"` instead of `emit_cc_hook_context "UserPromptSubmit" "$PAYLOAD"`. The test does NOT use `python3 -m json.tool` validity — it asserts only substring presence (skill name, Red Flags markers, etc.). All other Task 6 details (keyword table, Red Flags re-injection content, match precedence) remain unchanged. Code blocks below still show the JSON-envelope approach for the keyword-match logic structure; the implementer should swap `emit_cc_hook_context` for `printf '%s\n'` at emit time and drop the JSON-validity assertion in tests.
+
 **Files:**
-- Modify: `cc-tuned/hooks/cc-user-prompt-submit` (replace stub body)
-- Modify: `cc-tuned/tests/hooks/test-cc-user-prompt-submit.sh` (add CC-behavior assertions)
+- Modify: `cc-tuned/hooks/cc-user-prompt-submit` (replace stub body — plain text emit, not JSON)
+- Modify: `cc-tuned/tests/hooks/test-cc-user-prompt-submit.sh` (add CC-behavior assertions — substring-only, no JSON validity)
 
 **Spec §2.2 behavior (refined for M2 — see deviation note below):**
 
