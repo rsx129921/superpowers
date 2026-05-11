@@ -38,12 +38,13 @@ for stub in cc-session-start cc-user-prompt-submit cc-pre-compact; do
     assert_eq "$stub: non-CC produces no stdout" "" "$actual"
     assert_eq "$stub: non-CC exits 0" "0" "$rc"
 
-    # CC: stub exits 0 (M1 stubs don't emit context yet; M2 will)
+    # CC: stub exits 0, emits nothing (M1 stubs don't emit context yet; M2 will)
     set +e
     actual=$(env -i CLAUDE_PLUGIN_ROOT=/fake "$BASH_BIN" "$HOOKS/$stub" </dev/null 2>&1)
     rc=$?
     set -e
     assert_eq "$stub: CC stub exits 0" "0" "$rc"
+    assert_eq "$stub: CC stub emits nothing" "" "$actual"
 done
 
 echo

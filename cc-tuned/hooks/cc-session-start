@@ -13,7 +13,10 @@ if [ "$PLATFORM" != "cc" ]; then
     exit 0
 fi
 
-# M1 stub: register-but-no-op. Drain stdin in case CC sent any (avoids blocking).
+# M1 stub: register-but-no-op. Drain stdin if CC sent any. cat blocks
+# until pipe closes — safe for M1 because stubs do nothing with the
+# data; M2 must handle large or slow payloads explicitly (timeout or
+# non-blocking read).
 cat >/dev/null 2>&1 || true
 
 exit 0
