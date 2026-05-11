@@ -41,6 +41,12 @@ assert_eq "copilot cli detected as non-cc" "non-cc" "$actual"
 actual=$(env -i CURSOR_PLUGIN_ROOT=/some/path "$BASH_BIN" "$LIB")
 assert_eq "cursor detected as non-cc" "non-cc" "$actual"
 
+# Case 3.5: Cursor with CC root also set (deliberate divergence from upstream session-start)
+# Cursor may set both vars; our detection treats this combo as non-CC so the
+# cc-tuned layer doesn't activate inside a Cursor session running superpowers.
+actual=$(env -i CURSOR_PLUGIN_ROOT=/some/path CLAUDE_PLUGIN_ROOT=/some/path "$BASH_BIN" "$LIB")
+assert_eq "cursor + CLAUDE_PLUGIN_ROOT both set, treated as non-cc" "non-cc" "$actual"
+
 # Case 4: Nothing set (e.g. invoked outside a harness)
 actual=$(env -i "$BASH_BIN" "$LIB")
 assert_eq "no harness detected as non-cc" "non-cc" "$actual"

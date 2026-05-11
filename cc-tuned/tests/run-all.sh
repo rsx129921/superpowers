@@ -25,6 +25,10 @@ for test in "$SCRIPT_DIR"/**/test-*.sh; do
 done
 
 echo "========================================="
+if [ $total -eq 0 ]; then
+    echo "  ERROR: no test files found under $SCRIPT_DIR"
+    exit 1
+fi
 echo "  $passed / $total test files passed"
 if [ ${#failed_tests[@]} -gt 0 ]; then
     echo "  Failed:"
