@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-10
 **Decision:** Register cc-tuned hooks in `hooks/hooks.json`
-**Authority:** Official Claude Code Plugins reference — https://code.claude.com/docs/en/plugins-reference (File locations reference table; Component path fields table)
+**Authority:** Official Claude Code Plugins reference — https://code.claude.com/docs/en/plugins-reference (File locations reference table; Component path fields table) — URL confirmed live 2026-05-10
 **Empirical verification:** Deferred (subagent cannot run /plugin list)
 
 ## Findings
@@ -34,7 +34,7 @@ The example (`"./my-extra-hooks.json"`) is deliberately a **non-default path** �
 
 Register cc-tuned hooks in `hooks/hooks.json` because:
 
-1. **It is the canonical auto-discovered location.** The official docs state this unambiguously: `hooks/hooks.json` in plugin root is the default hook configuration file (https://code.claude.com/docs/en/plugins-reference#file-locations-reference).
+1. **It is the canonical auto-discovered location.** The official docs state this unambiguously: `hooks/hooks.json` in plugin root is the default hook configuration file (https://code.claude.com/docs/en/plugins-reference#file-locations-reference — URL confirmed live 2026-05-10).
 
 2. **No `plugin.json` edit is needed for the default location.** Adding `"hooks": "./hooks/hooks.json"` to `plugin.json` would be redundant and would trigger a duplicate detection error (confirmed by real-world bug report).
 
@@ -51,11 +51,6 @@ Task 6 will edit `hooks/hooks.json` only. It will append three new hook entries:
 
 The `.claude-plugin/plugin.json` manifest stays **untouched** by Task 6. No `hooks` field should be added to it.
 
-## Notes for controller verification
+## Post-Task-6 verification
 
-To empirically verify after merge: run `/plugin list` (or `/plugin validate`) in a fresh Claude Code session with the plugin loaded. Confirm:
-1. The plugin loads without errors or warnings about duplicate hook declarations.
-2. All three new hooks appear in `/plugin list` output under the `superpowers` plugin.
-3. Triggering a session start fires both the upstream `session-start` hook and the new `cc-session-start` hook (check that both commands execute; the second registration order determines execution order).
-
-If verification reveals the hooks do NOT fire, check that the new hook scripts are executable (`chmod +x`) — the official troubleshooting table lists "Script not executable" as the most common cause of hooks not firing.
+See implementation plan Task 6 Step 4 and Task 9 Step 3 for the verification procedure.
