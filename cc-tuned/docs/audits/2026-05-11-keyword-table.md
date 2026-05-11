@@ -95,4 +95,42 @@ Bias: the hook's design comment says "false negatives are fine; false positives 
 
 ## Hook changes applied
 
-_To be filled in Task 7 if the audit triggers any. If no changes apply, this section says "No hook changes — audit confirms all patterns within tuning bar."_
+### Removed patterns (6)
+
+- Removed: `*failing*` (skill `superpowers:systematic-debugging`)
+- Removed: `*broken*` (skill `superpowers:systematic-debugging`)
+- Removed: `*"doesn't work"*` (skill `superpowers:systematic-debugging`)
+- Removed: `*"why is this"*` (skill `superpowers:systematic-debugging`)
+- Removed: `*"implementation plan"*` (skill `superpowers:writing-plans`)
+- Removed: `*"design doc"*` (skill `superpowers:writing-plans`)
+
+### Tightened patterns (5)
+
+- Tightened: `*"let's build"*` → `*"let's build a"*` (skill `superpowers:brainstorming`) — glob
+- Tightened: `*"let's make"*` → `*"let's make a"*` (skill `superpowers:brainstorming`) — glob
+- Tightened: `*"let's create"*` → `*"let's create a"*` (skill `superpowers:brainstorming`) — glob
+- Tightened: `*"new feature"*` → regex `implement.*new feature|add.*new feature|new feature.*for` (skill `superpowers:brainstorming`) — moved to new `grep -qE` block
+- Tightened: `*bug*` → `*"a bug"*|*"the bug"*|*"this bug"*|*"that bug"*|*bugs*` (skill `superpowers:systematic-debugging`) — glob (see syntax decision below)
+
+### Bug syntax decision: glob literal (audit recommendation)
+
+Applied the audit's explicit glob recommendation rather than the regex word-boundary alternative (`(^| )bugs?( |$)`). Rationale: the audit doc already evaluated both forms and chose the determiner-phrase approach on the grounds that it (1) eliminates the "don't bug me" FP that would survive even the space-bounded regex (` bug ` has spaces around the verb sense), (2) avoids the prompt-final TP loss ("fix the bug" with no trailing space wouldn't match the space-bounded form), and (3) loses only adjective+bare-noun constructions ("weird bug") that were never corpus-confirmed as true positives. The existing positive test "weird bug in the parser" was therefore updated to "fix the bug in the parser" to reflect what the tightened pattern actually covers.
+
+### Test changes
+
+- Added negative tests: 13 cases in `test-cc-user-prompt-submit.sh`
+  - 6 for removed patterns (one per removal)
+  - 4 for tightened brainstorming patterns (three bare-phrase, one bare-noun-phrase)
+  - 3 for tightened bug pattern (`debug`, `don't bug me`, adjective-only)
+- Updated positive tests: 5 existing tests modified
+  - `"let's create something"` → `"let's create a tool"` (tighten: requires article)
+  - `"weird bug in the parser"` → `"fix the bug in the parser"` (tighten: requires determiner)
+  - `"draft the implementation plan"` → `"draft a plan for the migration"` (removal: new prompt uses kept `draft a plan` pattern)
+  - `"kick off a design doc"` → converted to negative test `"removed: design doc"` (removal)
+  - `"build is broken"` → converted to negative test `"removed: broken"` (removal)
+  - Added 2 new positive tests for `implement.*new feature` and `add.*new feature` regex paths
+  - Relabeled `"failing trigger"` → `"test.*fail regex (was: failing trigger)"` (prompt "test is failing again" still matches via `test.*fail` regex; label updated to reflect the changed trigger pathway)
+  - Updated inline Red Flags / plain-text verification probes from `"let's build something"` to `"let's build a todo app"` (the bare form no longer matches after tighten)
+- Removed positive tests: 0 (all converted to negatives or updated)
+
+Patch commit: in this PR
