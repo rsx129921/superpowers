@@ -6,8 +6,8 @@ This directory is the **Claude Code-specific layer** of the rsx129921/superpower
 
 | Milestone | Status | What ships |
 |-----------|--------|------------|
-| M1 Foundation | active | this scaffold + stub hooks |
-| M2 Hook Layer | not started | real hook logic |
+| M1 Foundation | **complete** | scaffold + stub hooks (merged 2026-05-11) |
+| M2 Hook Layer | **complete** | real hook logic — MCP injection, keyword match, cc-pre-compact dropped |
 | M3 Memory-Aware Skills | not started | three companion skills |
 | M4 Upstream Sync v1 | not started | first post-fork merge |
 | M5 Polish & Docs | not started | final README pass |
@@ -21,12 +21,13 @@ See [`docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`](../docs/superp
 | `hooks/run-hook.cmd` | Polyglot bat+bash dispatcher (mirrors upstream pattern) |
 | `hooks/lib/platform-detect.sh` | "Are we on CC?" check, sole source of truth |
 | `hooks/lib/mcp-introspect.sh` | Read MCP server names from settings.json files |
-| `hooks/cc-session-start` | M2: inject MCP availability + memory-aware directive |
-| `hooks/cc-user-prompt-submit` | M2: keyword-match user prompt, re-inject discipline |
-| `hooks/cc-pre-compact` | M2: preserve bootstrap across compaction |
+| `hooks/lib/json-emit.sh` | escape_for_json + CC hookSpecificOutput envelope helpers (M2) |
+| `hooks/cc-session-start` | MCP availability + memory-aware directive injection (M2) |
+| `hooks/cc-user-prompt-submit` | Keyword-match user prompt, inject discipline reminder (plain text, M2) |
 | `skills/` | M3: three `memory-aware-*` companion skills |
 | `tests/run-all.sh` | Tier 1+2 test entry point |
-| `docs/plugin-hooks-research.md` | Decision record on where hook events register |
+| `docs/plugin-hooks-research.md` | Decision record on where hook events register (M1 Task 1) |
+| `docs/cc-hook-json-contracts-research.md` | Decision record on per-event JSON contracts (M2 Task 1) |
 
 ## Soft-strip guarantees
 
@@ -47,15 +48,39 @@ Expected output ends with `All test files passed.` on a clean run.
 
 ## Manual smoke test (Tier 3)
 
-> This procedure becomes meaningful once M2 ships. M1 stubs are silent on success.
+Run this in a fresh Claude Code session with the plugin loaded after every M2+ change to the hook bodies.
 
-1. Open a fresh CC session with this plugin loaded.
-2. Send the user message: `let's debug a failing test`.
-3. Expected behavior:
-   - `cc-user-prompt-submit` matches the `failing` keyword.
-   - Injection suggests `superpowers:systematic-debugging`.
-   - If `cognee-memory` MCP is up, `memory-aware-debugging` should trigger and recall prior debugging context.
-4. If any step doesn't happen, see `cc-tuned/docs/` for troubleshooting.
+### Setup
+- Open a clean CC session (no prior context).
+- Confirm at least one memory MCP is configured (episodic-memory or cognee-memory in your `~/.claude/settings.json` `mcpServers`).
+
+### Check 1: SessionStart MCP injection
+Open a new conversation. In your first turn, ask Claude:
+> "What MCPs do you currently have available? Just list the names."
+
+Expected: Claude lists the MCPs you have configured. If it says it doesn't know, `cc-session-start` is not injecting context — check `~/.claude/logs/` for hook errors and re-run `bash cc-tuned/tests/hooks/test-cc-session-start.sh`.
+
+### Check 2: UserPromptSubmit keyword trigger
+Send the user message exactly:
+> "let's build a small todo CLI"
+
+Expected: Claude invokes `superpowers:brainstorming` *before* asking any clarifying questions. The brainstorming skill's intro should appear in Claude's response.
+
+If Claude dives straight into implementation without invoking brainstorming, `cc-user-prompt-submit` either didn't fire, didn't match, or didn't inject the suggestion. Check `~/.claude/logs/`.
+
+### Check 3: Compaction preservation (covered implicitly)
+There is no separate cc-pre-compact hook in the cc-tuned layer (PreCompact and PostCompact events do not accept `additionalContext` per Anthropic's hook contract — see `cc-tuned/docs/cc-hook-json-contracts-research.md`). The bootstrap-preservation goal is covered implicitly by cc-session-start: CC re-fires SessionStart hooks after compaction, so the MCP-availability + memory-aware injection runs again on the post-compaction model.
+
+To spot-check: have a long-running conversation, let compaction fire, then send a follow-up that should trigger a skill (e.g., "this test is failing"). Expected: systematic-debugging still triggers post-compaction.
+
+### Failure-mode quick reference
+
+| Symptom | Likely cause | Where to look |
+|---------|--------------|---------------|
+| Claude doesn't know about your MCPs | cc-session-start not firing or not injecting | `~/.claude/logs/`; verify `bash cc-tuned/tests/hooks/test-cc-session-start.sh` still green |
+| "let's build X" doesn't trigger brainstorming | cc-user-prompt-submit not matching or not injecting | `~/.claude/logs/`; verify test-cc-user-prompt-submit.sh green; check keyword table in the hook |
+| First-session error banner | UserPromptSubmit hook emitting JSON instead of plain text (bug #17550) | Confirm `cat <<EOF` in cc-user-prompt-submit, not `emit_cc_hook_context` |
+| Skills stop triggering after compaction | cc-session-start not re-firing on `compact` matcher | Verify `hooks/hooks.json` has the cc-session-start entry with `startup\|clear\|compact` matcher |
 
 ## Rip-cord
 
