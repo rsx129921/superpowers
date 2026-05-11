@@ -109,7 +109,7 @@ Behavior:
 1. Calls `platform-detect.sh`. Exits 0 with empty output if not on CC.
 2. Calls `mcp-introspect.sh` which:
    - Reads `~/.claude/settings.json` and `.claude/settings.json` for `mcpServers` config.
-   - Inspects environment for active MCP tool prefixes (`mcp__*`).
+   - ~~Inspects environment for active MCP tool prefixes (`mcp__*`).~~ (Deferred — settings.json coverage is sufficient for the primary use case; env-prefix introspection moved to M5 if needed.)
    - Returns a deduplicated list of detected MCP names.
 3. Emits `additionalContext` JSON containing:
    - A line listing detected MCPs by name.

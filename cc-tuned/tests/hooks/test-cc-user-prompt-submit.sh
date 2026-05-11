@@ -93,14 +93,18 @@ assert_skill_suggested "failing trigger"        "test is failing again"      "su
 assert_skill_suggested "broken trigger"         "build is broken"            "superpowers:systematic-debugging"
 assert_skill_suggested "bug trigger"            "weird bug in the parser"    "superpowers:systematic-debugging"
 assert_skill_suggested "doesn't work trigger"   "this doesn't work"          "superpowers:systematic-debugging"
+assert_skill_suggested "test.*fail regex fallback" "the unit tests fail intermittently" "superpowers:systematic-debugging"
 
 # TDD triggers
 assert_skill_suggested "add tests trigger"      "add tests for this function" "superpowers:test-driven-development"
 assert_skill_suggested "TDD trigger"            "let's use TDD here"          "superpowers:test-driven-development"
+assert_skill_suggested "test first trigger"     "let's write the test first"  "superpowers:test-driven-development"
 
 # writing-plans triggers
 assert_skill_suggested "write a plan trigger"        "write a plan for this work"   "superpowers:writing-plans"
 assert_skill_suggested "implementation plan trigger" "draft the implementation plan" "superpowers:writing-plans"
+assert_skill_suggested "write a spec trigger"        "write a spec for the new API" "superpowers:writing-plans"
+assert_skill_suggested "design doc trigger"          "kick off a design doc"        "superpowers:writing-plans"
 
 # Negative cases — should emit nothing
 assert_no_suggestion "casual conversation" "how are you today"
