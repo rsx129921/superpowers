@@ -56,24 +56,29 @@ PROMPT_LC=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 # First-match wins.
 SKILL=""
 case "$PROMPT_LC" in
-    *"let's build"*|*"let's make"*|*"let's create"*|*"new feature"*)
+    *"let's build a"*|*"let's make a"*|*"let's create a"*)
         SKILL="superpowers:brainstorming"
         ;;
-    *failing*|*broken*|*bug*|*"doesn't work"*|*"why is this"*)
+    *"a bug"*|*"the bug"*|*"this bug"*|*"that bug"*|*" bugs "*|*" bugs"|"bugs "*)
         SKILL="superpowers:systematic-debugging"
         ;;
     *"add tests"*|*tdd*|*"test first"*|*"write tests"*)
         SKILL="superpowers:test-driven-development"
         ;;
-    *"write a plan"*|*"write a spec"*|*"draft a plan"*|*"implementation plan"*|*"design doc"*)
+    *"write a plan"*|*"write a spec"*|*"draft a plan"*)
         SKILL="superpowers:writing-plans"
         ;;
 esac
 
-# Regex fallback for systematic-debugging (test.*fail) since bash case
-# globs don't support regex.
+# Regex fallbacks since bash case globs don't support regex.
+# systematic-debugging: test.*fail (co-occurrence is more constraining than single-word patterns)
 if [ -z "$SKILL" ] && printf '%s' "$PROMPT_LC" | grep -qE 'test.*fail'; then
     SKILL="superpowers:systematic-debugging"
+fi
+
+# brainstorming: creation-verb anchored new-feature phrases
+if [ -z "$SKILL" ] && printf '%s' "$PROMPT_LC" | grep -qE 'implement.*new feature|add.*new feature|new feature.*for'; then
+    SKILL="superpowers:brainstorming"
 fi
 
 if [ -z "$SKILL" ]; then

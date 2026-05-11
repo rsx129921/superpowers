@@ -85,14 +85,20 @@ assert_no_suggestion() {
 # brainstorming triggers
 assert_skill_suggested "let's build trigger"    "let's build a todo app"  "superpowers:brainstorming"
 assert_skill_suggested "let's make trigger"     "let's make a parser"     "superpowers:brainstorming"
-assert_skill_suggested "let's create trigger"   "let's create something"  "superpowers:brainstorming"
+assert_skill_suggested "let's create trigger"   "let's create a tool"     "superpowers:brainstorming"
 assert_skill_suggested "new feature trigger"    "I want a new feature for X" "superpowers:brainstorming"
+assert_skill_suggested "implement new feature trigger" "implement a new feature in the auth module" "superpowers:brainstorming"
+assert_skill_suggested "add new feature trigger"       "add a new feature for power users"          "superpowers:brainstorming"
 
 # systematic-debugging triggers
-assert_skill_suggested "failing trigger"        "test is failing again"      "superpowers:systematic-debugging"
-assert_skill_suggested "broken trigger"         "build is broken"            "superpowers:systematic-debugging"
-assert_skill_suggested "bug trigger"            "weird bug in the parser"    "superpowers:systematic-debugging"
-assert_skill_suggested "doesn't work trigger"   "this doesn't work"          "superpowers:systematic-debugging"
+# "test is failing again" — now hits the test.*fail regex, not the removed *failing* glob
+assert_skill_suggested "test.*fail regex (was: failing trigger)" "test is failing again"      "superpowers:systematic-debugging"
+# bug triggers (tightened to determiner/plural forms)
+assert_skill_suggested "bug trigger (the)"      "fix the bug in the parser"  "superpowers:systematic-debugging"
+assert_skill_suggested "bug trigger (a)"        "found a bug in the handler" "superpowers:systematic-debugging"
+assert_skill_suggested "bug trigger (this)"     "this bug is annoying"       "superpowers:systematic-debugging"
+assert_skill_suggested "bug trigger (that)"     "that bug keeps coming back" "superpowers:systematic-debugging"
+assert_skill_suggested "bug trigger (bugs)"     "there are bugs in the code" "superpowers:systematic-debugging"
 assert_skill_suggested "test.*fail regex fallback" "the unit tests fail intermittently" "superpowers:systematic-debugging"
 
 # TDD triggers
@@ -101,18 +107,37 @@ assert_skill_suggested "TDD trigger"            "let's use TDD here"          "s
 assert_skill_suggested "test first trigger"     "let's write the test first"  "superpowers:test-driven-development"
 
 # writing-plans triggers
-assert_skill_suggested "write a plan trigger"        "write a plan for this work"   "superpowers:writing-plans"
-assert_skill_suggested "implementation plan trigger" "draft the implementation plan" "superpowers:writing-plans"
-assert_skill_suggested "write a spec trigger"        "write a spec for the new API" "superpowers:writing-plans"
-assert_skill_suggested "design doc trigger"          "kick off a design doc"        "superpowers:writing-plans"
+assert_skill_suggested "write a plan trigger"        "write a plan for this work"     "superpowers:writing-plans"
+assert_skill_suggested "draft a plan trigger"        "draft a plan for the migration" "superpowers:writing-plans"
+assert_skill_suggested "write a spec trigger"        "write a spec for the new API"   "superpowers:writing-plans"
 
 # Negative cases — should emit nothing
 assert_no_suggestion "casual conversation" "how are you today"
 assert_no_suggestion "just a question"     "what time is it"
 assert_no_suggestion "a routine task"      "rename this variable"
 
+# Negative cases for REMOVED patterns (must no longer fire)
+assert_no_suggestion "removed: failing (non-test context)" "the plan is failing to come together"
+assert_no_suggestion "removed: broken"                     "build is broken"
+assert_no_suggestion "removed: doesn't work"               "this doesn't work"
+assert_no_suggestion "removed: why is this"                "why is this taking so long"
+assert_no_suggestion "removed: implementation plan"        "the implementation plan from last sprint"
+assert_no_suggestion "removed: design doc"                 "the design doc says we should use postgres"
+
+# Negative cases for TIGHTENED brainstorming patterns
+assert_no_suggestion "tightened: let's build (no article)"  "let's build consensus here"
+assert_no_suggestion "tightened: let's make (no article)"   "let's make sure this is right"
+assert_no_suggestion "tightened: let's create (no article)" "let's create some space for discussion"
+assert_no_suggestion "tightened: new feature (no verb)"     "Python's new feature is interesting"
+
+# Negative cases for TIGHTENED bug pattern (must require determiner or plural)
+assert_no_suggestion "tightened: bug (debug)"               "debug this issue"
+assert_no_suggestion "tightened: bug (debugs substring)"    "she debugs the code"
+assert_no_suggestion "tightened: bug (don't bug me)"        "don't bug me about it"
+assert_no_suggestion "tightened: bug (adjective-only)"      "weird bug in the parser"
+
 # Red Flags / discipline re-injection present in matched output
-output=$(invoke_cc_hook '{"prompt": "let'\''s build something"}')
+output=$(invoke_cc_hook '{"prompt": "let'\''s build a todo app"}')
 if printf '%s' "$output" | grep -qiE 'red flag|rationaliz|MUST invoke'; then
     echo "  pass: matched output includes discipline re-injection"
     pass=$((pass + 1))
@@ -122,7 +147,7 @@ else
 fi
 
 # Plain-text emit verification: matched output is NOT JSON
-output=$(invoke_cc_hook '{"prompt": "let'\''s build something"}')
+output=$(invoke_cc_hook '{"prompt": "let'\''s build a todo app"}')
 if printf '%s' "$output" | grep -qF '"hookSpecificOutput"'; then
     echo "  FAIL: matched output is JSON envelope — should be plain text (bug #17550)"
     fail=$((fail + 1))
