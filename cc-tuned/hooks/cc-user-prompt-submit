@@ -1,21 +1,100 @@
 #!/usr/bin/env bash
-# cc-user-prompt-submit (M1 stub)
+# cc-user-prompt-submit
 #
-# M1: platform-detect → drain stdin → exit 0 silently. Real keyword-matching
-# logic arrives in M2 per design spec §2.2.
+# Fires on every user message. Reads {"prompt": "..."} from stdin,
+# pattern-matches against a conservative keyword table, and on match
+# emits a plain-text payload (skill suggestion + condensed Red Flags
+# reminder) on stdout. CC injects the stdout into the model's context.
+#
+# Plain text emit avoids Anthropic bug #17550 (UserPromptSubmit JSON
+# hookSpecificOutput triggers a spurious first-session error banner).
+# See cc-tuned/docs/cc-hook-json-contracts-research.md.
+#
+# Conservative matching by design: false negatives are fine (upstream
+# skill discovery still works); false positives erode the signal
+# value of the injection itself.
+#
+# Per design spec §2.2 (with the keyword table tightened in M2).
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLATFORM=$(bash "${SCRIPT_DIR}/lib/platform-detect.sh")
 
+# Always drain stdin (UserPromptSubmit always sends a payload).
+PROMPT_JSON=$(cat 2>/dev/null || true)
+
 if [ "$PLATFORM" != "cc" ]; then
-    # Still drain stdin so CC doesn't block waiting for us to consume it
-    cat >/dev/null 2>&1 || true
     exit 0
 fi
 
-# M1 stub: drain the prompt payload, no-op
-cat >/dev/null 2>&1 || true
+# Extract the prompt text from {"prompt": "..."} JSON. Prefer jq, fall
+# back to python3, then sed (POSIX-portable last resort).
+extract_prompt() {
+    if command -v jq >/dev/null 2>&1; then
+        printf '%s' "$PROMPT_JSON" | jq -r '.prompt // empty' 2>/dev/null
+    elif command -v python3 >/dev/null 2>&1; then
+        printf '%s' "$PROMPT_JSON" | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("prompt") or "")
+except: pass' 2>/dev/null
+    else
+        # POSIX sed fallback: extract the value of the "prompt" key.
+        # Handles simple single-line JSON with no escaped quotes in value.
+        printf '%s' "$PROMPT_JSON" | sed 's/.*"prompt"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/' \
+            | grep -v '^{' 2>/dev/null || true
+    fi
+}
+
+PROMPT=$(extract_prompt)
+if [ -z "$PROMPT" ]; then
+    exit 0
+fi
+
+# Lowercase for case-insensitive matching (POSIX-portable).
+PROMPT_LC=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
+
+# First-match wins.
+SKILL=""
+case "$PROMPT_LC" in
+    *"let's build"*|*"let's make"*|*"let's create"*|*"new feature"*)
+        SKILL="superpowers:brainstorming"
+        ;;
+    *failing*|*broken*|*bug*|*"doesn't work"*|*"why is this"*)
+        SKILL="superpowers:systematic-debugging"
+        ;;
+    *"add tests"*|*tdd*|*"test first"*|*"write tests"*)
+        SKILL="superpowers:test-driven-development"
+        ;;
+    *"write a plan"*|*"write a spec"*|*"draft a plan"*|*"implementation plan"*|*"design doc"*)
+        SKILL="superpowers:writing-plans"
+        ;;
+esac
+
+# Regex fallback for systematic-debugging (test.*fail) since bash case
+# globs don't support regex.
+if [ -z "$SKILL" ] && printf '%s' "$PROMPT_LC" | grep -qE 'test.*fail'; then
+    SKILL="superpowers:systematic-debugging"
+fi
+
+if [ -z "$SKILL" ]; then
+    exit 0
+fi
+
+# Emit plain text (not JSON envelope — see bug #17550 note above).
+cat <<EOF
+This prompt matches the ${SKILL} trigger pattern. Per the using-superpowers bootstrap, you MUST invoke ${SKILL} before any other action — including clarifying questions.
+
+Red Flags (rationalizations that mean STOP — you're talking yourself out of using the skill):
+- "This is just a simple question" → Questions are tasks. Check for skills.
+- "I need more context first" → Skill check comes BEFORE clarifying questions.
+- "Let me explore the codebase first" → Skills tell you HOW to explore. Check first.
+- "I can check git/files quickly" → Files lack conversation context. Check for skills.
+- "This doesn't need a formal skill" → If a skill exists, use it.
+- "I remember this skill" → Skills evolve. Read current version.
+- "The skill is overkill" → Simple things become complex. Use it.
+- "I'll just do this one thing first" → Check BEFORE doing anything.
+
+Invoke ${SKILL} now via the Skill tool.
+EOF
 
 exit 0
