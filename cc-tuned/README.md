@@ -65,8 +65,8 @@ If you ever want to abandon the cc-tuned layer entirely:
 # 1. Delete the layer
 git rm -r cc-tuned/
 
-# 2. Revert the two JSON additive edits (find via git log -p plugin.json hooks/hooks.json)
-git checkout <upstream-SHA> -- .claude-plugin/plugin.json hooks/hooks.json
+# 2. Revert the one JSON additive edit (find via git log -p hooks/hooks.json)
+git checkout <upstream-SHA> -- hooks/hooks.json
 
 # 3. Commit
 git commit -m "revert: remove cc-tuned layer"
