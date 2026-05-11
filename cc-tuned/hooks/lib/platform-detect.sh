@@ -6,12 +6,16 @@
 # (fail-open). Sourced or invoked by every cc-tuned hook before any
 # CC-specific work.
 #
-# Detection rules:
-#   - CC sets CLAUDE_PLUGIN_ROOT (and does NOT set COPILOT_CLI)
-#   - Cursor sets CURSOR_PLUGIN_ROOT
-#   - Copilot CLI sets COPILOT_CLI=1
-#   - Codex / others: none of the above set
-# Source: existing hooks/session-start script's platform detection logic.
+# Detection rules (slightly stricter than upstream hooks/session-start):
+#   - CC: CLAUDE_PLUGIN_ROOT set, COPILOT_CLI unset, AND CURSOR_PLUGIN_ROOT unset
+#   - Cursor: CURSOR_PLUGIN_ROOT set (Cursor may also set CLAUDE_PLUGIN_ROOT —
+#     this branch deliberately treats that combination as non-CC so the
+#     cc-tuned layer does not activate inside a Cursor session running the
+#     superpowers plugin)
+#   - Copilot CLI: COPILOT_CLI=1
+#   - Codex / others / no harness: none of the above set
+# Derived from but stricter than: hooks/session-start (which does not exclude
+# CURSOR_PLUGIN_ROOT from the CC branch).
 
 set -u
 

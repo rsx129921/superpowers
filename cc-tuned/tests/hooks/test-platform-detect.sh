@@ -33,7 +33,7 @@ BASH_BIN="$(command -v bash)"
 actual=$(env -i CLAUDE_PLUGIN_ROOT=/some/path "$BASH_BIN" "$LIB")
 assert_eq "cc detected" "cc" "$actual"
 
-# Case 2: Copilot CLI (both vars set)
+# Case 2: Copilot CLI override (CLAUDE_PLUGIN_ROOT set but Copilot CLI also active)
 actual=$(env -i CLAUDE_PLUGIN_ROOT=/some/path COPILOT_CLI=1 "$BASH_BIN" "$LIB")
 assert_eq "copilot cli detected as non-cc" "non-cc" "$actual"
 
