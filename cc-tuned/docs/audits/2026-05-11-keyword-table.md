@@ -56,7 +56,42 @@ Bias: the hook's design comment says "false negatives are fine; false positives 
 
 ## Summary of recommendations
 
-_To be filled in Task 6 after all four per-skill passes complete._
+### Patterns to remove
+
+- `failing` (skill: `superpowers:systematic-debugging`) — single-word predicate applies to arbitrary non-code subjects ("plan is failing", "lighting is failing"); no narrowing form resolves the FP surface, and the concept is covered by `test.*fail`.
+- `broken` (skill: `superpowers:systematic-debugging`) — single-word adjective modifies any noun ("broken English", "a broken promise"); no tightening short of a compound phrase reduces FP surface meaningfully.
+- `doesn't work` (skill: `superpowers:systematic-debugging`) — two-word phrase still applies universally to hardware, social, and lifestyle contexts; no anchoring glob reliably constrains it to software.
+- `why is this` (skill: `superpowers:systematic-debugging`) — generic interrogative opener with zero semantic anchoring to debugging; all 3 theoretical FPs matched and episodic search returned only unrelated hits across 15 results.
+- `implementation plan` (skill: `superpowers:writing-plans`) — noun phrase fires on reference/navigation prompts ("where is the plan?", "per the agreed plan") equally as on creation intent; no glob tighten reliably distinguishes creation from reference.
+- `design doc` (skill: `superpowers:writing-plans`) — same artifact-reference problem as `implementation plan`; two-word noun phrase carries no inherent creation signal and produced the highest-risk FP surface in this batch.
+
+### Patterns to tighten
+
+- `let's build` → `let's build a` (skill: `superpowers:brainstorming`) — bare phrase fires on conversational uses ("build on the point", "build consensus"); appending `a` requires an object noun, constraining to construction intent.
+- `let's make` → `let's make a` (skill: `superpowers:brainstorming`) — same root cause; "make sure", "make this clear", and "make a decision" all matched the bare form; the indefinite article requires a countable artifact.
+- `let's create` → `let's create a` (skill: `superpowers:brainstorming`) — "create some space", "create a shared vocabulary", "create a checklist" all matched bare form; tighten to `let's create a` excludes the first two and constrains the third to artifact-creation contexts.
+- `new feature` → `implement.*new feature\|add.*new feature\|new feature.*for` (skill: `superpowers:brainstorming`) — bare noun phrase fires on roadmap mentions and docs sentences; the replacement requires a creation verb (`implement`, `add`) or a `for` qualifier anchoring purpose, which preserves the true-positive signal while excluding feature-as-topic references.
+- `bug` → `*"a bug"*\|*"the bug"*\|*"this bug"*\|*"that bug"*\|*"bugs"*` (skill: `superpowers:systematic-debugging`) — bare substring fires on "debug", "debugger", and "don't bug me"; requiring a determiner phrase (`a`/`the`/`this`/`that`) or the plural form constrains the match to the noun sense and preserves TPs ("fix the bug", "found a bug", "this bug is annoying").
+
+### Patterns to keep
+
+**superpowers:systematic-debugging**
+- `test.*fail` (regex) — co-occurrence of `test` and `fail` is materially more constraining than any single-word pattern; literary FPs are uncommon in developer-tool sessions and the pattern was intentionally retained in M2.
+
+**superpowers:test-driven-development**
+- `add tests` — tight imperative phrasing; no unambiguous FP in theoretical enumeration.
+- `tdd` — acronym mention in a CC session is overwhelmingly in-context; FPs feel contrived outside dev work.
+- `test first` — one non-dev FP (UX-validation phrasing), below the ≥2 threshold.
+- `write tests` — one unambiguous FP ("tests of attention"), well below threshold.
+
+**superpowers:writing-plans**
+- `write a plan` — one unambiguous non-dev FP; imperative form keeps precision high in CC sessions.
+- `write a spec` — one FP (negation form); negation cannot be excluded via glob without stranding TPs.
+- `draft a plan` — one borderline FP ("draft a plan B"); idiom is rare in pure dev-tool sessions and skill-firing cost is low.
+
+### Net effect on hook signal
+
+6 patterns removed and 5 tightened out of 19 total (8 kept unchanged). The removals eliminate the hook's broadest single-word and generic-phrase triggers, which collectively generated the most theoretical false-positive surface; the tightens preserve true-positive recall for the brainstorming and systematic-debugging skills while closing the main FP exposure. Because episodic data was thin across all four skills (zero verbatim hits in every corpus search), conclusions rest primarily on theoretical false-positive enumeration rather than measured session traffic — the actual false-positive reduction in practice is plausible but unquantified. No new false-negatives are expected for brainstorming (the replacements preserve all plausible creation-intent phrasings) or for TDD and writing-plans (all four patterns in each are kept). For systematic-debugging, removing `failing`, `broken`, and `doesn't work` leaves `test.*fail` and the tightened `bug` pattern as the main entry points, which is a deliberate trade of breadth for precision consistent with the hook's design comment.
 
 ## Hook changes applied
 
