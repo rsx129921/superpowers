@@ -48,11 +48,11 @@ Bias: the hook's design comment says "false negatives are fine; false positives 
 
 | Pattern | Episodic TP | Episodic FP | Episodic AMB | Theoretical FP (of 3) | Recommendation | Notes |
 |---------|-------------|-------------|--------------|----------------------|----------------|-------|
-| `write a plan` | | | | | | |
-| `write a spec` | | | | | | |
-| `draft a plan` | | | | | | |
-| `implementation plan` | | | | | | |
-| `design doc` | | | | | | |
+| `write a plan` | 0 | 0 | 0 | 1 | keep | No episodic hits. One unambiguous FP (non-dev personal planning); the other two theoretical candidates were dev-context TPs or ambiguous meta-questions. Below ≥2 threshold; imperative phrasing keeps precision high in CC sessions. |
+| `write a spec` | 0 | 0 | 0 | 1 | keep | No episodic hits. One unambiguous FP (negation: "don't write a spec, just prototype"); negation case cannot be excluded via glob without a narrowing prefix that would strand TPs. Second candidate ("I'd rather write a spec by hand") is dev-context ambiguous, not a clear FP. Below threshold. |
+| `draft a plan` | 0 | 0 | 0 | 1 | keep | No episodic hits. One borderline FP ("draft a plan B" stock idiom); the `plan B` phrase is uncommon in pure dev-tool sessions and the skill firing is low-cost. Below threshold. |
+| `implementation plan` | 0 | 0 | 0 | 3 | remove | No episodic user-prompt hits (100%-match results were skill-file injection artifacts, not user prompts). All 3 theoretical FPs were "referencing the artifact" category: citing a prior sprint's plan, deferring to an agreed plan, asking where the doc lives. Pattern fires whenever the noun phrase appears; no glob tighten reliably distinguishes creation intent from reference/navigation. |
+| `design doc` | 0 | 0 | 0 | 3 | remove | No episodic user-prompt hits (same artifact-injection false signal as `implementation plan`). All 3 theoretical FPs were "referencing the artifact" category: citing what the doc says, reading it, asking for a link. Two-word noun phrase offers no inherent creation signal; FP surface is highest-risk in this batch. |
 
 ## Summary of recommendations
 
