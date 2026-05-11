@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
-# cc-session-start (M1 stub)
+# cc-session-start
 #
-# M1: platform-detect → exit 0 silently. Real MCP-introspection logic
-# arrives in M2 per docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md §2.1.
+# Fires on SessionStart event (matcher: startup|clear|compact, also fires
+# post-compaction). Inspects MCP server config and injects an
+# additionalContext line telling the model which MCPs are available + when
+# to invoke memory-aware variants of brainstorming/systematic-debugging/
+# writing-plans.
+#
+# Idempotent for a given MCP configuration — same content session-to-session
+# keeps CC's prompt cache warm.
+#
+# Per design spec §2.1.
 
 set -u
 
@@ -13,10 +21,31 @@ if [ "$PLATFORM" != "cc" ]; then
     exit 0
 fi
 
-# M1 stub: register-but-no-op. Drain stdin if CC sent any. cat blocks
-# until pipe closes — safe for M1 because stubs do nothing with the
-# data; M2 must handle large or slow payloads explicitly (timeout or
-# non-blocking read).
+# shellcheck source=lib/json-emit.sh disable=SC1091
+source "${SCRIPT_DIR}/lib/json-emit.sh"
+
+# Drain stdin defensively. SessionStart historically sends no stdin, but
+# CC's contract may change. cat blocks until pipe closes — safe here.
 cat >/dev/null 2>&1 || true
+
+# Collect MCP names via mcp-introspect.sh. Fail-open: any error → empty
+# list → "(none detected)" message in payload.
+MCPS=$(bash "${SCRIPT_DIR}/lib/mcp-introspect.sh" 2>/dev/null || true)
+
+if [ -z "$MCPS" ]; then
+    MCP_LINE="Available MCPs: (none detected)"
+else
+    # Join newline-separated names with ", "
+    MCP_LINE="Available MCPs: $(printf '%s\n' "$MCPS" | paste -sd, - | sed 's/,/, /g')"
+fi
+
+PAYLOAD=$(cat <<EOF
+${MCP_LINE}
+
+When you would invoke superpowers:brainstorming, superpowers:systematic-debugging, or superpowers:writing-plans, FIRST check whether memory-aware variants apply: if episodic-memory or cognee-memory is in the available MCPs list above, prefer the corresponding memory-aware skill so prior context is recalled before doing new work.
+EOF
+)
+
+emit_cc_hook_context "SessionStart" "$PAYLOAD"
 
 exit 0
