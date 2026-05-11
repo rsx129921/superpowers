@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LIB="${SCRIPT_DIR}/../../hooks/lib/mcp-introspect.sh"
 BASH_BIN="$(command -v bash)"
 TMPDIR=$(mktemp -d)
-trap "rm -rf $TMPDIR" EXIT
+trap 'rm -rf "$TMPDIR"' EXIT
 
 fail=0
 pass=0
@@ -42,6 +42,7 @@ expected="cognee-memory
 episodic-memory"
 assert_eq "user-only MCPs detected, sorted" "$expected" "$actual"
 
+# Cases 2-3 inherit user.json fixture from Case 1 (cognee-memory + episodic-memory)
 # Case 2: Project settings adds a third MCP
 cat > "$TMPDIR/project.json" <<'EOF'
 {"mcpServers": {"obsidian": {"command": "z"}}}
