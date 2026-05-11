@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# cc-user-prompt-submit (M1 stub)
+#
+# M1: platform-detect → drain stdin → exit 0 silently. Real keyword-matching
+# logic arrives in M2 per design spec §2.2.
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLATFORM=$(bash "${SCRIPT_DIR}/lib/platform-detect.sh")
+
+if [ "$PLATFORM" != "cc" ]; then
+    # Still drain stdin so CC doesn't block waiting for us to consume it
+    cat >/dev/null 2>&1 || true
+    exit 0
+fi
+
+# M1 stub: drain the prompt payload, no-op
+cat >/dev/null 2>&1 || true
+
+exit 0

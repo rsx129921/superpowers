@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# cc-session-start (M1 stub)
+#
+# M1: platform-detect → exit 0 silently. Real MCP-introspection logic
+# arrives in M2 per docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md §2.1.
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLATFORM=$(bash "${SCRIPT_DIR}/lib/platform-detect.sh")
+
+if [ "$PLATFORM" != "cc" ]; then
+    exit 0
+fi
+
+# M1 stub: register-but-no-op. Drain stdin if CC sent any. cat blocks
+# until pipe closes — safe for M1 because stubs do nothing with the
+# data; M2 must handle large or slow payloads explicitly (timeout or
+# non-blocking read).
+cat >/dev/null 2>&1 || true
+
+exit 0
