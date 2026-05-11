@@ -19,10 +19,10 @@ Bias: the hook's design comment says "false negatives are fine; false positives 
 
 | Pattern | Episodic TP | Episodic FP | Episodic AMB | Theoretical FP (of 3) | Recommendation | Notes |
 |---------|-------------|-------------|--------------|----------------------|----------------|-------|
-| `let's build` | | | | | | |
-| `let's make` | | | | | | |
-| `let's create` | | | | | | |
-| `new feature` | | | | | | |
+| `let's build` | 0 | 0 | 0 | 3 | tighten: `let's build a` | Phrase not found in corpus. All 3 theoretical FPs matched (conversational: "build on the point", "build a mental model", "build consensus"). Pattern fires on any substring; needs an object noun to distinguish construction intent from conversational use. |
+| `let's make` | 0 | 0 | 0 | 3 | tighten: `let's make a` | Phrase not found in corpus. All 3 theoretical FPs matched ("make sure", "make this clear", "make a decision"). Same root cause as `let's build` — too short to distinguish intent. |
+| `let's create` | 0 | 0 | 0 | 3 | tighten: `let's create a` | Phrase not found in corpus. All 3 theoretical FPs matched ("create some space", "create a shared vocabulary", "create a checklist"). Note: "create a checklist" is debatable as a near-TP but no brainstorming is needed for checklist tasks. |
+| `new feature` | 0 | 0 | 0 | 3 | tighten: `implement.*new feature\|add.*new feature\|new feature.*for` | Phrase not found in corpus as user-typed trigger. All 3 theoretical FPs matched (Python language feature, roadmap mention, docs sentence). Pure substring match is too broad; intent diverges sharply based on surrounding verbs. |
 
 ### superpowers:systematic-debugging
 
