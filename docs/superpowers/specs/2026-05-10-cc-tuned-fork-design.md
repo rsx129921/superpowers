@@ -200,13 +200,19 @@ Body:
 
 #### 4.1 `.claude-plugin/plugin.json`
 
-**Not modified.** Task 1's empirical research determined that declaring a `hooks` field in `plugin.json` alongside the auto-discovered `hooks/hooks.json` triggers CC's duplicate-detection error. The decision record at `cc-tuned/docs/plugin-hooks-research.md` cites the relevant docs URL and a confirming bug report. The rip-cord and conflict-resolution playbooks were updated to match this single-file pattern.
+**Modified in M3 only — `skills` field added.** Originally planned to remain untouched: M1 Task 1 research found that declaring a `hooks` field in `plugin.json` alongside the auto-discovered `hooks/hooks.json` triggers CC's duplicate-detection error (see `cc-tuned/docs/plugin-hooks-research.md`). M3 Task 1 research found that the `skills` field has different semantics — additive, no duplicate-detection concern (see `cc-tuned/docs/cc-plugin-skills-declaration-research.md`). So M3 added exactly one key:
+
+```json
+"skills": "./cc-tuned/skills/"
+```
+
+This declares the cc-tuned skills subtree without affecting the upstream auto-discovery of `skills/`. The `hooks` field remains intentionally absent.
 
 #### 4.2 `hooks/hooks.json`
 
 Add three entries — one for each new event. SessionStart already exists; append a second matcher entry (same `startup|clear|compact` matcher). UserPromptSubmit and PreCompact are new top-level event keys. Diff size: ~32 lines.
 
-The list-append edits in hooks.json conflict rarely with upstream changes. (See §4.1 for why plugin.json is intentionally untouched.)
+The list-append edits in hooks.json conflict rarely with upstream changes. (See §4.1 for why the `hooks` field in plugin.json remains intentionally absent.)
 
 ### 5. Upstream-Merge Strategy
 
@@ -218,7 +224,7 @@ The list-append edits in hooks.json conflict rarely with upstream changes. (See 
 
 | File | Likely conflict | Resolution |
 |------|-----------------|------------|
-| `.claude-plugin/plugin.json` | Upstream bumps version, adds keys near our edit | Keep both. Our `hooks` block stays. |
+| `.claude-plugin/plugin.json` | Upstream adds a key in the `skills` edit region, OR adds a new `hooks` block | Keep both. Our `skills` line stays. Reject any upstream `hooks` field (would conflict with hooks/hooks.json auto-discovery; see §4.1). |
 | `hooks/hooks.json` | Upstream adds a new hook entry | Keep both. Order irrelevant. |
 
 Any conflict outside these two files signals drift — investigate before resolving.
