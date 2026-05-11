@@ -137,15 +137,15 @@ Behavior:
    - A condensed re-injection of the using-superpowers Red Flags table (defeats rationalization).
 5. No match → emit nothing. Don't pollute every turn with noise.
 
-#### 2.3 `cc-pre-compact` — bootstrap preservation
+#### 2.3 `cc-pre-compact` — DROPPED
 
-Registered on `PreCompact`.
+**Original design intent:** A PreCompact hook that injects an `additionalContext` directive telling the compaction summarizer to preserve the using-superpowers bootstrap reminder, defeating "compaction amnesia."
 
-Behavior:
-1. Platform detect. Exits silently if not on CC.
-2. Emits a fixed string via `additionalContext`:
-   > *"After this compaction completes: the using-superpowers bootstrap is still in effect. The compaction summary MUST include a note that superpowers skills (brainstorming, systematic-debugging, test-driven-development, writing-plans, verification-before-completion) remain available via the Skill tool and SHOULD be invoked when their trigger conditions match."*
-3. The summarizer model receives this instruction as part of its input and incorporates it into the compacted summary, which the post-compaction model then sees.
+**Why dropped (resolved 2026-05-11 during M2 Task 1 research):** Per Anthropic's hook contract, neither PreCompact nor PostCompact accept `additionalContext`. PreCompact only supports `{"decision": "block", "reason": "..."}` for blocking compaction; PostCompact is observation-only with universal fields only. Anthropic feature requests #32026 and #40492 for context injection on PostCompact were closed as duplicates with no fix planned. See `cc-tuned/docs/cc-hook-json-contracts-research.md` for the full decision record.
+
+**How the goal is still met:** Claude Code re-fires SessionStart hooks after compaction (per the `startup|clear|compact` matcher in `hooks/hooks.json`). cc-session-start (§2.1) is already registered with that matcher, so its MCP-availability + memory-aware-directive injection runs *every* time after a compaction event — implicitly covering the bootstrap-preservation goal without needing a dedicated compaction-event hook.
+
+**File-level consequence:** No cc-tuned/hooks/cc-pre-compact script exists. No PreCompact entry in hooks/hooks.json.
 
 ### 3. Memory-Aware Skill Family
 
