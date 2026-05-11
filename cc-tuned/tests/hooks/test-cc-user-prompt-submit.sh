@@ -132,6 +132,7 @@ assert_no_suggestion "tightened: new feature (no verb)"     "Python's new featur
 
 # Negative cases for TIGHTENED bug pattern (must require determiner or plural)
 assert_no_suggestion "tightened: bug (debug)"               "debug this issue"
+assert_no_suggestion "tightened: bug (debugs substring)"    "she debugs the code"
 assert_no_suggestion "tightened: bug (don't bug me)"        "don't bug me about it"
 assert_no_suggestion "tightened: bug (adjective-only)"      "weird bug in the parser"
 

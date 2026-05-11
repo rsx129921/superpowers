@@ -59,7 +59,7 @@ case "$PROMPT_LC" in
     *"let's build a"*|*"let's make a"*|*"let's create a"*)
         SKILL="superpowers:brainstorming"
         ;;
-    *"a bug"*|*"the bug"*|*"this bug"*|*"that bug"*|*bugs*)
+    *"a bug"*|*"the bug"*|*"this bug"*|*"that bug"*|*" bugs "*|*" bugs"|"bugs "*)
         SKILL="superpowers:systematic-debugging"
         ;;
     *"add tests"*|*tdd*|*"test first"*|*"write tests"*)

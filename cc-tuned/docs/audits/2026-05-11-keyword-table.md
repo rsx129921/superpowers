@@ -110,7 +110,8 @@ Bias: the hook's design comment says "false negatives are fine; false positives 
 - Tightened: `*"let's make"*` → `*"let's make a"*` (skill `superpowers:brainstorming`) — glob
 - Tightened: `*"let's create"*` → `*"let's create a"*` (skill `superpowers:brainstorming`) — glob
 - Tightened: `*"new feature"*` → regex `implement.*new feature|add.*new feature|new feature.*for` (skill `superpowers:brainstorming`) — moved to new `grep -qE` block
-- Tightened: `*bug*` → `*"a bug"*|*"the bug"*|*"this bug"*|*"that bug"*|*bugs*` (skill `superpowers:systematic-debugging`) — glob (see syntax decision below)
+- Tightened: `*bug*` → `*"a bug"*|*"the bug"*|*"this bug"*|*"that bug"*|*" bugs "*|*" bugs"|"bugs "*` (skill `superpowers:systematic-debugging`) — glob (see syntax decision below)
+  - **Follow-up fix (Task 7):** The initial tighten used `*bugs*` (substring) for the plural form, which inadvertently matched `debugs` (e.g. "she debugs the code") because `debugs` contains the substring `bugs`. The `*bugs*` alternate was replaced with three boundary-anchored alternates — `*" bugs "*` (middle), `*" bugs"` (end), `"bugs "*` (start) — eliminating the `debugs` false positive. FPs now also eliminated: "she debugs the code", "it debugs memory leaks", "the profiler debugs the allocation".
 
 ### Bug syntax decision: glob literal (audit recommendation)
 
