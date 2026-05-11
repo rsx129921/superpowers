@@ -41,7 +41,7 @@ Both frictions share a root cause: **the bootstrap is a one-shot prose injection
 
 ### Soft-strip, not hard-strip
 
-The fork preserves all upstream files unchanged except for two additive JSON edits to `.claude-plugin/plugin.json` and `hooks/hooks.json`. New behavior lives in a single new top-level directory: `cc-tuned/`. Deleting `cc-tuned/` and reverting the two JSON hunks restores the upstream cleanly — the fork has a rip-cord.
+The fork preserves all upstream files unchanged except for one additive JSON edit to `hooks/hooks.json`. (Task 1's research determined that `.claude-plugin/plugin.json` is intentionally untouched — declaring hooks there while `hooks/hooks.json` exists triggers CC's duplicate-detection error. See `cc-tuned/docs/plugin-hooks-research.md`.) New behavior lives in a single new top-level directory: `cc-tuned/`. Deleting `cc-tuned/` and reverting the one JSON hunk restores the upstream cleanly — the fork has a rip-cord.
 
 ### Wrap, don't replace
 
@@ -200,13 +200,13 @@ Body:
 
 #### 4.1 `.claude-plugin/plugin.json`
 
-Add a `hooks` array declaring the three new events. Exact JSON structure follows CC's plugin spec (resolved in the implementation plan). Estimated diff size: ~5 lines.
+**Not modified.** Task 1's empirical research determined that declaring a `hooks` field in `plugin.json` alongside the auto-discovered `hooks/hooks.json` triggers CC's duplicate-detection error. The decision record at `cc-tuned/docs/plugin-hooks-research.md` cites the relevant docs URL and a confirming bug report. The rip-cord and conflict-resolution playbooks were updated to match this single-file pattern.
 
 #### 4.2 `hooks/hooks.json`
 
-Add three entries — one for each new event (SessionStart already exists; append a second matcher entry). Estimated diff size: ~15 lines.
+Add three entries — one for each new event. SessionStart already exists; append a second matcher entry (same `startup|clear|compact` matcher). UserPromptSubmit and PreCompact are new top-level event keys. Diff size: ~32 lines.
 
-Both files are list-append edits that conflict rarely with upstream changes.
+The list-append edits in hooks.json conflict rarely with upstream changes. (See §4.1 for why plugin.json is intentionally untouched.)
 
 ### 5. Upstream-Merge Strategy
 
@@ -292,7 +292,7 @@ Retained sections: Problem / Approach / Testing / Existing PRs.
 
 ## Risks & Open Questions
 
-- **Plugin manifest hook declarations:** CC's plugin spec format for declaring hook events in `plugin.json` may differ from registering them in `hooks/hooks.json`. The implementation plan must verify which mechanism CC uses for plugin-declared hooks and update Section 4.1 accordingly.
+- **Plugin manifest hook declarations:** ~~CC's plugin spec format for declaring hook events in `plugin.json` may differ from registering them in `hooks/hooks.json`. The implementation plan must verify which mechanism CC uses for plugin-declared hooks and update Section 4.1 accordingly.~~ **RESOLVED (2026-05-11):** Task 1 of M1 determined hooks register via `hooks/hooks.json` only. Section 4 and Soft-strip principle updated. See `cc-tuned/docs/plugin-hooks-research.md`.
 - **MCP introspection reliability:** `mcp-introspect.sh` depends on parsing `~/.claude/settings.json` and `.claude/settings.json`. If those formats change, MCP detection breaks. Mitigation: fail open — missing detection means memory-aware skills don't trigger, but normal skills still work.
 - **Keyword table maintenance:** False positives may emerge as user prompts evolve. Mitigation: M5 includes a documented review of the keyword table; tune based on actual session experience, not speculation.
 - **Pre-compact hook timing:** CC's `PreCompact` hook contract (whether `additionalContext` reaches the summarizer or just the post-compaction model) needs to be confirmed against current CC behavior. If `additionalContext` only reaches the post-compaction model, the hook's value is reduced but still positive (it re-asserts bootstrap immediately after compaction).

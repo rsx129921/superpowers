@@ -10,6 +10,38 @@
             "async": false
           }
         ]
+      },
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/cc-tuned/hooks/run-hook.cmd\" cc-session-start",
+            "async": false
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/cc-tuned/hooks/run-hook.cmd\" cc-user-prompt-submit",
+            "async": false
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/cc-tuned/hooks/run-hook.cmd\" cc-pre-compact",
+            "async": false
+          }
+        ]
       }
     ]
   }
