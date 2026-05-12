@@ -10,9 +10,82 @@ This directory is the **Claude Code-specific layer** of the rsx129921/superpower
 | M2 Hook Layer | **complete** | real hook logic — MCP injection, keyword match, cc-pre-compact dropped |
 | M3 Memory-Aware Skills | **complete** | memory-aware-brainstorming / -debugging / -planning (merged after M2) |
 | M4 Upstream Sync v1 | not started | first post-fork merge |
-| M5 Polish & Docs | **in progress** | audit + maintenance procedure shipped; arch narrative + fork README + gitconfig aliases + upstream-merge playbook still open |
+| M5 Polish & Docs | **in progress** | audit + maintenance procedure + arch narrative shipped; fork README + gitconfig aliases (optional) + upstream-merge playbook (blocked on M4) still open |
 
 See [`docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`](../docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md) for the full design.
+
+## Architecture
+
+The cc-tuned layer composes four small units. Each has one responsibility and a well-defined input/output; together they let upstream skills behave better on Claude Code without editing any upstream prose.
+
+### Layer 1 — Platform detection
+
+**File:** `hooks/lib/platform-detect.sh`
+
+Every cc-tuned hook calls this script first and exits 0 with no output when the answer is not `cc`. This is the single gate that makes the entire layer additive — the same checked-out fork works on Codex, Gemini, Cursor, OpenCode, and Copilot CLI without behavioral change, because every hook short-circuits before doing anything CC-specific.
+
+**Input:** none (reads environment). **Output:** prints `cc` or the detected platform name on stdout.
+
+### Layer 2 — Session bootstrap
+
+**Files:** `hooks/cc-session-start` + `hooks/lib/mcp-introspect.sh`
+
+Registered against the `startup|clear|compact` SessionStart matcher in `hooks/hooks.json`. On every session start (and after every compaction event, which re-fires SessionStart), this hook:
+
+1. Reads the user's MCP configuration via `mcp-introspect.sh` (scans `~/.claude/settings.json` and any `.claude/settings.json` in the project).
+2. Emits an `additionalContext` JSON envelope listing the available MCP server names.
+3. Adds a directive instructing the model to prefer memory-aware skill variants (the M3 family) when memory MCPs are configured.
+
+**Why re-fire on compact:** post-compaction the model loses prior session context but SessionStart hooks fire again, so the MCP list and memory-aware directive get re-injected. There is no separate `cc-pre-compact` hook — PreCompact and PostCompact events don't accept `additionalContext` per the bug research in `docs/cc-hook-json-contracts-research.md`.
+
+**Input:** SessionStart hook event JSON. **Output:** `hookSpecificOutput.additionalContext` string injected into the conversation.
+
+### Layer 3 — Per-prompt skill suggestion
+
+**Files:** `hooks/cc-user-prompt-submit` + `hooks/lib/json-emit.sh`
+
+Fires on every user message. Reads `{"prompt": "..."}` from stdin, lowercases the text, and tries a small keyword table — a first-match-wins bash `case` block plus one `grep -qE` regex fallback for patterns that can't be expressed as globs. On match, emits a plain-text suggestion ("This prompt matches the `<skill>` trigger pattern…") plus a condensed Red Flags list.
+
+**Why plain text and not JSON:** UserPromptSubmit + `hookSpecificOutput` JSON triggers Anthropic bug #17550 (a spurious first-session error banner). The hook uses a `cat <<EOF` heredoc instead. `hooks/lib/json-emit.sh` is still present for any non-UserPromptSubmit event that needs the JSON envelope.
+
+**Tuning:** the keyword table is intentionally conservative — false negatives are fine (upstream skill discovery backstops them), but false positives erode the signal value of the injection. See `docs/keyword-table-maintenance.md` for the add/remove/tighten procedure and `docs/audits/` for dated audits.
+
+**Input:** UserPromptSubmit event JSON. **Output:** plain text on stdout (or empty on no-match).
+
+### Layer 4 — Memory-aware skill wrappers
+
+**Files:** `skills/memory-aware-brainstorming/`, `skills/memory-aware-debugging/`, `skills/memory-aware-planning/`
+
+Three prose-only skill wrappers, registered under `cc-tuned/skills/` via the `"skills"` field in `.claude-plugin/plugin.json`. Each wraps one upstream skill (brainstorming / systematic-debugging / writing-plans) with two extra phases:
+
+1. **RECALL** — query `episodic-memory` and/or `cognee-memory` MCPs for prior context relevant to the task.
+2. **Invoke** the wrapped upstream skill normally.
+3. **COMMIT-offer** — at the end, propose 1–3 durable facts to cognify and ask the user before committing. Memory writes are never automatic.
+
+The Layer 2 directive is what causes Claude to prefer these wrappers over the bare upstream skills — without it, skill discovery defaults to the upstream name. The wrappers are inert when memory MCPs aren't configured (they simply skip the RECALL/COMMIT phases).
+
+### Runtime flow
+
+```
+Fresh session              Each user prompt              Skill firing (MCPs up)
+─────────────              ────────────────              ─────────────────────────
+CC startup                 user types message            Skill check
+  │                          │                             │
+  ▼                          ▼                             ▼
+cc-session-start runs      cc-user-prompt-submit         Layer 2 directive →
+  │                        runs                          prefer memory-aware-*
+  ▼                          │                             │
+introspect MCPs              ▼                             ▼
+  │                        keyword match?                RECALL (episodic+cognee)
+  ▼                          │ yes                         │
+inject MCP list +            ▼                             ▼
+memory-aware directive     emit plain-text               invoke upstream skill
+                           injection                       │
+                                                           ▼
+                                                         COMMIT-offer
+```
+
+Each layer is independently testable (`cc-tuned/tests/hooks/test-platform-detect.sh`, `test-cc-session-start.sh`, `test-cc-user-prompt-submit.sh`, `test-mcp-introspect.sh`, `tests/skills/test-skill-frontmatter.sh`). The Tier 3 manual smoke test below exercises the full runtime composition.
 
 ## What lives here
 
