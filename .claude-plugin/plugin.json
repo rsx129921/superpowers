@@ -17,5 +17,6 @@
     "best-practices",
     "workflows"
   ],
-  "skills": "./cc-tuned/skills/"
+  "skills": "./cc-tuned/skills/",
+  "agents": "./cc-tuned/agents/"
 }

@@ -11,6 +11,7 @@ This directory is the **Claude Code-specific layer** of the rsx129921/superpower
 | M3 Memory-Aware Skills | **complete** | memory-aware-brainstorming / -debugging / -planning (merged after M2) |
 | M4 Upstream Sync v1 | not started | first post-fork merge |
 | M5 Polish & Docs | **in progress** | audit + maintenance procedure + arch narrative shipped; fork README + gitconfig aliases (optional) + upstream-merge playbook (blocked on M4) still open |
+| M6 Dedicated Subagents | **in progress** | four cc-tuned-* subagents registered via plugin.json agents field |
 
 See [`docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`](../docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md) for the full design.
 
@@ -87,6 +88,19 @@ memory-aware directive     emit plain-text               invoke upstream skill
 
 Each layer is independently testable (`cc-tuned/tests/hooks/test-platform-detect.sh`, `test-cc-session-start.sh`, `test-cc-user-prompt-submit.sh`, `test-mcp-introspect.sh`, `tests/skills/test-skill-frontmatter.sh`). The Tier 3 manual smoke test below exercises the full runtime composition.
 
+## Subagents
+
+Four dedicated subagents at `cc-tuned/agents/` bake in the soft-strip invariant and four-layer architecture so subagent-driven cc-tuned PRs don't re-paste context into every dispatch.
+
+| Subagent | Role | Default model |
+|----------|------|---------------|
+| `superpowers:cc-tuned-implementer` | TDD-disciplined implementer for cc-tuned plan tasks | `sonnet` |
+| `superpowers:cc-tuned-spec-reviewer` | Spec-compliance review with soft-strip invariant check | `haiku` |
+| `superpowers:cc-tuned-code-quality-reviewer` | Code-quality review against cc-tuned conventions | `sonnet` |
+| `superpowers:cc-tuned-hook-tester` | Runs the test suite + diagnoses failures | `haiku` |
+
+These replace `general-purpose` for cc-tuned PRs only. For ad-hoc work outside the cc-tuned layer, `general-purpose` remains the right choice. Registration is a single `"agents": "./cc-tuned/agents/"` entry in `.claude-plugin/plugin.json` — same additive pattern as M3's `skills` registration.
+
 ## What lives here
 
 | Path | Purpose |
@@ -101,6 +115,12 @@ Each layer is independently testable (`cc-tuned/tests/hooks/test-platform-detect
 | `skills/memory-aware-debugging/SKILL.md` | M3: RECALL + cognify-offer wrapper around superpowers:systematic-debugging |
 | `skills/memory-aware-planning/SKILL.md` | M3: RECALL + cognify-offer wrapper around superpowers:writing-plans |
 | `tests/skills/test-skill-frontmatter.sh` | Tier 2 validator: SKILL.md frontmatter + wrap-don't-replace structure |
+| `agents/cc-tuned-implementer.md` | M6: TDD-disciplined implementer subagent (knows soft-strip + four layers) |
+| `agents/cc-tuned-spec-reviewer.md` | M6: spec-compliance reviewer subagent |
+| `agents/cc-tuned-code-quality-reviewer.md` | M6: code-quality reviewer subagent |
+| `agents/cc-tuned-hook-tester.md` | M6: hook-test runner + failure-diagnostic subagent |
+| `tests/agents/test-agent-frontmatter.sh` | Tier 2 validator: subagent .md frontmatter + tools list + no banned fields |
+| `docs/cc-plugin-subagents-declaration-research.md` | Decision record on plugin.json agents field (M6) |
 | `docs/cc-plugin-skills-declaration-research.md` | Decision record on plugin.json skills declaration (M3 Task 1) |
 | `docs/keyword-table-maintenance.md` | Evergreen procedure for adding/removing/tightening hook keyword patterns (M5) |
 | `docs/audits/2026-05-11-keyword-table.md` | Dated audit of the keyword table — findings + tuning rationale (M5) |
@@ -163,6 +183,17 @@ Expected sequence:
 4. The first response includes a RECALL summary from episodic-memory + cognee-memory.
 
 If Claude invokes plain `superpowers:brainstorming` instead, the SessionStart directive is being ignored — escalate.
+
+### Check 5: subagent discovery (M6)
+
+Open a fresh CC session with the plugin loaded. Run `/agents` (or use the agent picker in your CC harness). Confirm the typeahead lists these four:
+
+- `superpowers:cc-tuned-implementer`
+- `superpowers:cc-tuned-spec-reviewer`
+- `superpowers:cc-tuned-code-quality-reviewer`
+- `superpowers:cc-tuned-hook-tester`
+
+If any are missing, verify `.claude-plugin/plugin.json` has `"agents": "./cc-tuned/agents/"` and that the four .md files exist under `cc-tuned/agents/` with valid frontmatter (`bash cc-tuned/tests/agents/test-agent-frontmatter.sh` should pass).
 
 ### Failure-mode quick reference
 

@@ -314,3 +314,52 @@ Retained sections: Problem / Approach / Testing / Existing PRs.
 - Public marketplace publication.
 - CI integration.
 - Additional MCP wrappers beyond episodic-memory + cognee-memory.
+
+## §8 Dedicated cc-tuned subagents (M6)
+
+### Motivation
+
+During M5's subagent-driven execution (PRs #11 + #12), every dispatch used the generic `general-purpose` subagent with an ~80-line context preamble re-pasted into each prompt: soft-strip invariant, cc-tuned conventions, audit doc structure, failure-mode table. This worked but burned tokens and re-introduced context per dispatch.
+
+Dedicated subagents bake the cc-tuned context into the subagent's system prompt itself, so the controller only needs to pass the per-task delta — typically 10-20 lines instead of 100+.
+
+### Scope
+
+Four subagents, each with a clear single role:
+
+| Subagent | Role | Default model | Tool surface |
+|----------|------|---------------|--------------|
+| `cc-tuned-implementer` | TDD-disciplined implementer for cc-tuned plan tasks. Knows soft-strip + four layers. | `sonnet` | Read, Edit, Write, Bash, Grep, Glob |
+| `cc-tuned-spec-reviewer` | Verifies an implementation matches its plan task exactly. Includes soft-strip diff check. | `haiku` | Read, Bash, Grep |
+| `cc-tuned-code-quality-reviewer` | Reviews hook scripts / tests / docs against cc-tuned conventions. | `sonnet` | Read, Bash, Grep |
+| `cc-tuned-hook-tester` | Runs `cc-tuned/tests/run-all.sh` and diagnoses failures against per-event JSON contracts. | `haiku` | Read, Bash |
+
+### Boundary with general-purpose
+
+These subagents replace `general-purpose` **for cc-tuned PRs only** — they have cc-tuned-specific guardrails (e.g., the implementer refuses to edit upstream skill files; the reviewers check the soft-strip invariant). For ad-hoc work outside the cc-tuned layer or for cross-plugin tasks, `general-purpose` remains the right choice.
+
+### Registration mechanism
+
+Files live at `cc-tuned/agents/<name>.md`. Registered via a single additive edit to `.claude-plugin/plugin.json`:
+
+```json
+"agents": "./cc-tuned/agents/"
+```
+
+This is the same one-line additive pattern M3 used for `"skills": "./cc-tuned/skills/"`. The soft-strip invariant remains: only `hooks/hooks.json` and `.claude-plugin/plugin.json` diverge from upstream.
+
+### Security restrictions
+
+Plugin subagents do not support `hooks`, `mcpServers`, or `permissionMode` frontmatter fields (silently ignored by CC). Our four subagents do not need any of those — they rely on `tools`, `disallowedTools`, `model`, and the body prose only.
+
+### Testing
+
+- **Tier 2:** `cc-tuned/tests/agents/test-agent-frontmatter.sh` validates each agent file has required frontmatter (`name`, `description`, `tools`, `model`) + body is non-empty + no banned fields (`hooks`, `mcpServers`, `permissionMode`).
+- **Tier 3:** Manual smoke test post-merge — run `/agents` in a fresh CC session; confirm the four `superpowers:cc-tuned-*` agents appear. Documented in `cc-tuned/README.md` smoke-test section.
+
+### Out of scope for M6
+
+- Worked-example follow-up PR using the new subagents in place of general-purpose — per #10 acceptance, this is the first cc-tuned PR AFTER M6 merges, not part of M6 itself.
+- Wholesale replacement of `general-purpose` for non-cc-tuned work.
+- Subagents that wrap or coordinate other subagents (e.g., a meta-orchestrator). Deferred to a future milestone if value emerges.
+- Cross-plugin shared subagent library. Each plugin owns its own dedicated subagents by design.
