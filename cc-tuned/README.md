@@ -11,7 +11,7 @@ This directory is the **Claude Code-specific layer** of the rsx129921/superpower
 | M3 Memory-Aware Skills | **complete** | memory-aware-brainstorming / -debugging / -planning (merged after M2) |
 | M4 Upstream Sync v1 | not started | first post-fork merge |
 | M5 Polish & Docs | **in progress** | audit + maintenance procedure + arch narrative shipped; fork README + gitconfig aliases (optional) + upstream-merge playbook (blocked on M4) still open |
-| M6 Dedicated Subagents | **in progress** | four cc-tuned-* subagents registered via plugin.json agents field |
+| M6 Dedicated Subagents | **complete** | four cc-tuned-* subagents registered via plugin.json agents field; worked-example PR validates end-to-end |
 
 See [`docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md`](../docs/superpowers/specs/2026-05-10-cc-tuned-fork-design.md) for the full design.
 
@@ -133,7 +133,7 @@ These replace `general-purpose` for cc-tuned PRs only. For ad-hoc work outside t
 This layer is designed to coexist with upstream pulls. Properties to maintain:
 
 1. **No upstream skill files are edited.** Ever. Memory-aware skills (M3) *wrap* upstream skills via `Skill` invocation; they do not duplicate or modify upstream content.
-2. **Two upstream JSON files have small additive edits.** `hooks/hooks.json` (M1, M2 — registers hooks) and `.claude-plugin/plugin.json` (M3 — declares the cc-tuned/skills/ subtree). Both are list-append-style edits that conflict rarely. The design spec §5 has the conflict-resolution playbook.
+2. **Two upstream JSON files have small additive edits.** `hooks/hooks.json` (M1, M2 — registers hooks) and `.claude-plugin/plugin.json` (M3 — skills; M6 — agents). Both are list-append-style edits that conflict rarely. The design spec §5 has the conflict-resolution playbook.
 3. **All hooks no-op on non-CC harnesses.** The fork remains installable on Codex, Gemini, Cursor, OpenCode, Copilot CLI — the cc-tuned layer just silently disables itself there.
 4. **All hooks fail open.** Exit 0 with empty output on any error. Hooks never block a user turn or session start.
 
