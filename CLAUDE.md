@@ -104,3 +104,11 @@ Before proposing changes to skill design, workflow philosophy, or architecture, 
 - One problem per PR
 - Test on at least one harness and report results in the environment table
 - Describe the problem you solved, not just what you changed
+
+## Development tracking
+
+Work on this repo is tracked in Linear team **Superpowers** (key `SUP`; issues are `SUP-N`). Linear is the source of truth; GitHub issues/PRs mirror it via Linear's native GitHub integration.
+
+When opening a PR, reference the Linear issue ID in the PR title or branch name and include a magic word in the PR description (`Fixes SUP-N`, `Closes SUP-N`, or `Resolves SUP-N`) so the issue auto-closes on merge.
+
+Full conventions, the repo-onboarding checklist, and the role-based sub-agents (pm, tech-lead, engineer, qa, release-manager) live in `C:\dev\ProjectManagementRetool`.
